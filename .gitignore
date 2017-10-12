@@ -10,3 +10,6 @@ yarn-debug.log*
 yarn-error.log*
 
 node_modules/
+
+# PM2
+pm2.json

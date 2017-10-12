@@ -6,7 +6,7 @@ const {
   PEN_ID,
   JWT_SECRET,
   NODE_ENV,
-  PORT = 3001
+  PORT = 3000
 } = process.env
 
 if (!JWT_SECRET) throw Error('JWT_SECRET required!')

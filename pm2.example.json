@@ -1,0 +1,13 @@
+{
+  "apps": [{
+    "name": "codepen-auth-bot",
+    "script": "src/app.js",
+    "env": {
+      "NODE_ENV": "development",
+      "CDP_USER": "",
+      "PEN_ID": "",
+      "JWT_SECRET": "RANDOM_SECRET",
+      "CDP_SESSION_COOKIE": "codepen_session=SOME_SESSION_ID; path=/; expires=Mon, 24 Jul 2017 06:43:07 -0000; secure; HttpOnly"
+    }
+  }]
+}
