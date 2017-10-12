@@ -18,6 +18,7 @@ if (!CDP_USER || !CDP_SESSION_COOKIE || !PEN_ID) {
 const socketio = require('socket.io')
 const http = require('http')
 const express = require('express')
+const bodyParser = require('body-parser')
 
 const fs = require('fs')
 const jwt = require('jsonwebtoken')
@@ -69,13 +70,14 @@ app.use((req, res, next) => {
   next()
 })
 
+// JSON and URL-encoded support
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
+
+// Start server
 server.listen(PORT, () => {
   logger.info('Bot started!')
   logger.info(`Listening on port ${PORT}`)
-})
-
-app.get('/', (req, res) => {
-  res.json({ success: true })
 })
 
 const state = {
@@ -152,6 +154,26 @@ const state = {
         client.emit('tokenError', err)
       }
     })
+  })
+
+  // REST endpoints
+  app.get('/', (req, res) => {
+    res.json({ success: true })
+  })
+
+  app.post('/verify', (req, res, next) => {
+    const { token } = req.body
+
+    if (!token) return res.sendStatus(400).json({
+      error: 'token parameter required!'
+    })
+
+    try {
+      const valid = jwt.verify(token, JWT_SECRET)
+      res.json({ valid: true, data: valid })
+    } catch (e) {
+      res.json({ valid: false, error: e.message })
+    }
   })
 
   // renew tokens and cookies each 10 minutes
