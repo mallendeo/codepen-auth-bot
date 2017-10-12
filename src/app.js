@@ -58,6 +58,7 @@ if (NODE_ENV !== 'production') {
 const app = express()
 const server = http.Server(app)
 const io = socketio(server)
+const ns = io.of('/auth')
 
 // CORS
 app.use((req, res, next) => {
@@ -126,12 +127,12 @@ const state = {
       // Send the tokens only to the first comment with
       // the same session id
       uniqBy(tokens, 'to').forEach(token => {
-        io.to(token.to).emit('authenticated', token)
+        ns.to(token.to).emit('authenticated', token)
       })
     }
   }, 1000)
 
-  io.on('connection', client => {
+  ns.on('connection', client => {
     logger.info(`Client connected: ${client.id}`)
 
     client.on('notify', async () => {
