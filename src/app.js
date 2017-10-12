@@ -59,6 +59,13 @@ const app = express()
 const server = http.Server(app)
 const io = socketio(server)
 
+// CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+  next()
+})
+
 server.listen(PORT, () => {
   logger.info('Bot started!')
   logger.info(`Listening on port ${PORT}`)
