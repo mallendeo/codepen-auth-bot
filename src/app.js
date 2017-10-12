@@ -158,7 +158,11 @@ const state = {
 
   // REST endpoints
   app.get('/', (req, res) => {
-    res.json({ success: true })
+    res.json({
+      success: true,
+      name: 'CodePen Auth',
+      description: 'Allow CodePen users to authenticate with your app.'
+    })
   })
 
   app.post('/verify', (req, res, next) => {
