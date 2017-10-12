@@ -34,7 +34,9 @@ $ docker build -t codepen-auth-bot .
 ## Run
 
 ```bash
-$ docker run --name codepen-auth -p 3000:3000 --restart=always -d codepen-auth-bot
+$ docker run --name codepen-auth -p 3000:3000 \
+  -v $HOME/.codepen-auth/logs:/opt/app/logs \
+  --restart=always -d codepen-auth-bot
 ```
 
 # License
