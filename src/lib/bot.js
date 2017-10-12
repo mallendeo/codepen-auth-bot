@@ -60,7 +60,12 @@ module.exports = (sessionCookie, username, pen) => {
   }
 
   const getAllComments = async () => {
-    const res = await axios(`https://codepen.io/${username}/details/${pen}`)
+    const res = await axios(`https://codepen.io/${username}/details/${pen}`, {
+      headers: {
+        cookie: state.codepenSession
+      }
+    })
+
     const $ = cheerio.load(res.data)
 
     return $('.group.comment')
