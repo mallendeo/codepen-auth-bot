@@ -5,6 +5,7 @@
 $ git clone https://github.com/mallendeo/codepen-auth-bot
 $ cd codepen-auth-bot
 $ yarn # npm i
+$ mkdir logs
 
 # Define environment variables
 $ export NODE_ENV="development"

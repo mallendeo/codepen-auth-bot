@@ -40,8 +40,8 @@ const logger = createLogger({
     loggerFormat
   ),
   transports: [
-    new transports.File({ filename: 'error.log', level: 'error' }),
-    new transports.File({ filename: 'all.log' })
+    new transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new transports.File({ filename: 'logs/all.log' })
   ]
 })
 

@@ -4,6 +4,8 @@ FROM node:latest
 WORKDIR /opt/app
 COPY . /opt/app
 
+RUN mkdir -p /opt/app/logs
+
 RUN yarn global add pm2
 RUN yarn
 
