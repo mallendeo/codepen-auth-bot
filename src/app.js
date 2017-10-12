@@ -64,6 +64,8 @@ const ns = io.of('/auth')
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*')
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+  res.header('Access-Control-Allow-Credentials', 'true')
+  
   next()
 })
 
@@ -127,7 +129,7 @@ const state = {
       // Send the tokens only to the first comment with
       // the same session id
       uniqBy(tokens, 'to').forEach(token => {
-        ns.to(token.to).emit('authenticated', token)
+        ns.to(`/auth#${token.to}`).emit('authenticated', token)
       })
     }
   }, 1000)
