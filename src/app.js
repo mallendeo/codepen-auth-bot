@@ -4,12 +4,9 @@ const {
   CDP_USER,
   CDP_SESSION_COOKIE,
   PEN_ID,
-  JWT_SECRET,
   NODE_ENV,
   PORT = 3000
 } = process.env
-
-if (!JWT_SECRET) throw Error('JWT_SECRET required!')
 
 if (!CDP_USER || !CDP_SESSION_COOKIE || !PEN_ID) {
   throw Error('CDP_USER, CDP_SESSION_COOKIE and PEN_ID required!')
@@ -19,13 +16,15 @@ const socketio = require('socket.io')
 const http = require('http')
 const express = require('express')
 const bodyParser = require('body-parser')
-
-const fs = require('fs')
 const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
 const { uniqBy } = require('lodash')
 
 const initBot = require('./lib/bot')
 
+//------------------------------------------
+//                 Logging
+//------------------------------------------
 const { createLogger, format, transports } = require('winston')
 const { combine, timestamp, label, printf } = format
 
@@ -52,9 +51,28 @@ if (NODE_ENV !== 'production') {
   }))
 }
 
-// --------------
-// Init
-// --------------
+//------------------------------------------
+//                Database
+//------------------------------------------
+const knex = require('knex')({
+  client: 'sqlite3',
+  connection: {
+    filename: 'data/db.sqlite'
+  }
+})
+
+knex.schema
+  .createTableIfNotExists('apps', table => {
+    table.increments('id').primary()
+    table.string('secret').index()
+    table.string('ip').index()
+    table.timestamp('created_at').defaultTo(knex.fn.now())
+  })
+  .catch(e => logger.error(e.message))
+
+//------------------------------------------
+//               Init Server
+//------------------------------------------
 
 const app = express()
 const server = http.Server(app)
@@ -91,10 +109,12 @@ const state = {
 
   setInterval(async () => {
     const now = Date.now()
-    if (state.hasNextReq && now - state.lastRequest > 2000) {
+    const diff = now - state.lastRequest
+
+    if (state.hasNextReq && diff > 2000) {
       
       logger.info(`Auth request detected!`)
-      state.lastRequest && logger.info(`Time since last request: ${now - state.lastRequest}ms`)
+      state.lastRequest && logger.info(`Time since last request: ${diff}ms`)
   
       state.hasNextReq = false
       state.lastRequest = Date.now()
@@ -102,26 +122,53 @@ const state = {
       
       logger.info(`Parsed comments: ${JSON.stringify(comments, null, 2)}`)
       
-      const tokens = comments.map(comment => {
+      /**
+       * token Array<Promise>
+       */
+      const tokens = comments.map(async comment => {
         
-        const { username, userId, name } = comment
-        const token = jwt.sign(
-          { username, userId, name },
-          JWT_SECRET,
-          { expiresIn: '24h' }
-        )
-        
+        const { username, userId, name, text } = comment
+
+        const [ socketID, appID ] = text.split(':')
+
         bot.deleteComment(comment.id)
           .then(removed => {
-            logger.info(`Comment removed: ${comment.id}, ${comment.username}, ${comment.text}`)
+            logger.info(`Comment removed: ${comment.id}, ${username}, ${text}`)
           })
           .catch(e => {
             logger.error(`Error when removing comment: ${comment.id}`)
           })
 
+        if (!socketID || !appID) {
+          logger.error(`Wrong comment format: ${comment.text}`)
+          return
+        }
+        
+        const result = await knex
+          .select('secret')
+          .from('apps')
+          .where('id', '=', appID)
+          .first()
+
+        if (!result) {
+          logger.error(`Couldn't find appID ${appID}`)
+          return
+        }
+
+        if (result && result.secret.length !== 64) {
+          logger.error(`Wrong appSecret length: ${secret.length}`)
+          return
+        }
+
+        const token = jwt.sign(
+          { username, userId, name },
+          result.secret,
+          { expiresIn: 60 * 5 }
+        )
+
         return {
           token,
-          to: comment.text,
+          to: socketID,
           userId,
           username,
           name
@@ -130,9 +177,12 @@ const state = {
 
       // Send the tokens only to the first comment with
       // the same session id
-      uniqBy(tokens, 'to').forEach(token => {
-        ns.to(`/auth#${token.to}`).emit('authenticated', token)
-      })
+      uniqBy(tokens, 'to')
+        .filter(t => t)
+        .forEach(async tokenPromise => {
+          const token = await tokenPromise
+          ns.to(`/auth#${token.to}`).emit('authenticated', token)
+        })
     }
   }, 1000)
 
@@ -142,17 +192,6 @@ const state = {
     client.on('notify', async () => {
       logger.info(`Notified by: ${client.id}`)
       state.hasNextReq = true
-    })
-
-    client.on('verify', async (token) => {
-      try {
-        const valid = jwt.verify(token, JWT_SECRET)
-        logger.log('debug', `TOKEN_VALID ${valid.username}`);
-        client.emit('tokenValid', valid)
-      } catch (err) {
-        logger.log('debug', `TOKEN_ERROR ${err}`);
-        client.emit('tokenError', err)
-      }
     })
   })
 
@@ -166,18 +205,45 @@ const state = {
   })
 
   app.post('/verify', (req, res, next) => {
-    const { token } = req.body
+    const { token, secret } = req.body
+    
+    if (!token || !secret) {
+      res.status(400).json({
+        error: `'token' and 'secret' parameters required!`
+      })
 
-    if (!token) return res.status(400).json({
-      error: 'token parameter required!'
-    })
+      return
+    }
 
     try {
-      const valid = jwt.verify(token, JWT_SECRET)
-      res.json({ valid: true, data: valid })
+      const validToken = jwt.verify(token, secret)
+      logger.log('debug', `TOKEN_VALID ${validToken.username}`);
+      res.json({ valid: true, data: validToken })
     } catch (e) {
+      logger.log('debug', `TOKEN_ERROR ${e}`);
       res.json({ valid: false, error: e.message })
     }
+  })
+
+  app.get('/createApp', (req, res, next) => {
+    crypto.randomBytes(32, async (err, buffer) => {
+      if (err) {
+        res.status(500).json({ error: err })
+        return
+      }
+
+      const secret = buffer.toString('hex')
+      const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
+      
+      const result = await knex('apps').insert({ secret, ip })
+        
+      if (result.length) {
+        res.json({ secret, id: result[0] })
+        return
+      }
+
+      res.status(500).json({ error: true })
+    })
   })
 
   // renew tokens and cookies each 10 minutes

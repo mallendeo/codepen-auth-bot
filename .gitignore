@@ -13,3 +13,6 @@ node_modules/
 
 # PM2
 pm2.json
+
+# db
+data

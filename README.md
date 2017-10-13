@@ -6,6 +6,7 @@ $ git clone https://github.com/mallendeo/codepen-auth-bot
 $ cd codepen-auth-bot
 $ yarn # npm i
 $ mkdir logs
+$ mkdir data # sqlite db files
 
 # Define environment variables
 $ export NODE_ENV="development"
@@ -36,6 +37,7 @@ $ docker build -t codepen-auth-bot .
 ```bash
 $ docker run --name codepen-auth -p 3000:3000 \
   -v $HOME/.codepen-auth/logs:/opt/app/logs \
+  -v $HOME/.codepen-auth/data:/opt/app/data \
   --restart=always -d codepen-auth-bot
 ```
 
