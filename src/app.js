@@ -123,11 +123,9 @@ const state = {
       
       logger.info(`Parsed comments: ${JSON.stringify(comments, null, 2)}`)
       
-      /**
-       * token Array<Promise>
-       */
-      const tokens = comments.map(async comment => {
-        
+      let tokens = []
+    
+      for (let comment of comments) {
         const { username, userId, name, text } = comment
 
         const [ socketID, apiKey ] = text.split(':')
@@ -155,6 +153,7 @@ const state = {
           logger.error(`Couldn't find apiKey ${apiKey}`)
           return
         }
+
         if (result && result.apiSecret.length !== 64) {
           logger.error(`Wrong apiSecret length: ${apiSecret.length}`)
           return
@@ -166,14 +165,14 @@ const state = {
           { expiresIn: 60 * 5 }
         )
 
-        return {
+        tokens.push({
           token,
           to: socketID,
           userId,
           username,
           name
-        }
-      })
+        })
+      }
 
       // Send the tokens only to the first comment with
       // the same session id
