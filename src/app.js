@@ -64,7 +64,8 @@ const knex = require('knex')({
 knex.schema
   .createTableIfNotExists('apps', table => {
     table.increments('id').primary()
-    table.string('secret').index()
+    table.string('apiKey').index().unique()
+    table.string('apiSecret').index().unique()
     table.string('ip').index()
     table.timestamp('created_at').defaultTo(knex.fn.now())
   })
@@ -129,7 +130,7 @@ const state = {
         
         const { username, userId, name, text } = comment
 
-        const [ socketID, appID ] = text.split(':')
+        const [ socketID, apiKey ] = text.split(':')
 
         bot.deleteComment(comment.id)
           .then(removed => {
@@ -139,7 +140,7 @@ const state = {
             logger.error(`Error when removing comment: ${comment.id}`)
           })
 
-        if (!socketID || !appID) {
+        if (!socketID || !apiKey) {
           logger.error(`Wrong comment format: ${comment.text}`)
           return
         }
@@ -147,7 +148,7 @@ const state = {
         const result = await knex
           .select('secret')
           .from('apps')
-          .where('id', '=', appID)
+          .where('key', '=', apiKey)
           .first()
 
         if (!result) {
@@ -205,9 +206,9 @@ const state = {
   })
 
   app.post('/verify', (req, res, next) => {
-    const { token, secret } = req.body
+    const { token, apiSecret } = req.body
     
-    if (!token || !secret) {
+    if (!token || !apiSecret) {
       res.status(400).json({
         error: `'token' and 'secret' parameters required!`
       })
@@ -216,7 +217,7 @@ const state = {
     }
 
     try {
-      const validToken = jwt.verify(token, secret)
+      const validToken = jwt.verify(token, apiSecret)
       logger.log('debug', `TOKEN_VALID ${validToken.username}`);
       res.json({ valid: true, data: validToken })
     } catch (e) {
@@ -225,25 +226,29 @@ const state = {
     }
   })
 
-  app.get('/createApp', (req, res, next) => {
-    crypto.randomBytes(32, async (err, buffer) => {
+  const randomHex = (len = 32) => new Promise((resolve, reject) => {
+    crypto.randomBytes(len, async (err, buffer) => {
       if (err) {
-        res.status(500).json({ error: err })
+        reject(err)
         return
       }
-
-      const secret = buffer.toString('hex')
-      const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
-      
-      const result = await knex('apps').insert({ secret, ip })
-        
-      if (result.length) {
-        res.json({ secret, id: result[0] })
-        return
-      }
-
-      res.status(500).json({ error: true })
+      resolve(buffer.toString('hex'))
     })
+  })
+
+  app.get('/createApp', async (req, res, next) => {
+    try {
+      const apiKey = await randomHex(16)
+      const apiSecret = await randomHex()
+      const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress
+      const result = await knex('apps').insert({ apiKey, apiSecret, ip })
+
+      if (result.length && result[0]) {
+        res.json({ apiKey, apiSecret })
+      }
+    } catch (e) {
+      res.status(500).json({ error: true })
+    }
   })
 
   // renew tokens and cookies each 10 minutes
