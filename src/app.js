@@ -209,7 +209,7 @@ const state = {
     
     if (!token || !apiSecret) {
       res.status(400).json({
-        error: `'token' and 'secret' parameters required!`
+        error: `'token' and 'apiSecret' parameters required!`
       })
 
       return
