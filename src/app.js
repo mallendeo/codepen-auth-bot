@@ -152,7 +152,7 @@ const state = {
           .first()
 
         if (!result) {
-          logger.error(`Couldn't find appID ${appID}`)
+          logger.error(`Couldn't find apiKey ${apiKey}`)
           return
         }
 
