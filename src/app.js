@@ -146,24 +146,23 @@ const state = {
         }
         
         const result = await knex
-          .select('secret')
+          .select('apiSecret')
           .from('apps')
-          .where('key', '=', apiKey)
+          .where('apiKey', '=', apiKey)
           .first()
 
         if (!result) {
           logger.error(`Couldn't find apiKey ${apiKey}`)
           return
         }
-
-        if (result && result.secret.length !== 64) {
-          logger.error(`Wrong appSecret length: ${secret.length}`)
+        if (result && result.apiSecret.length !== 64) {
+          logger.error(`Wrong apiSecret length: ${apiSecret.length}`)
           return
         }
 
         const token = jwt.sign(
           { username, userId, name },
-          result.secret,
+          result.apiSecret,
           { expiresIn: 60 * 5 }
         )
 
