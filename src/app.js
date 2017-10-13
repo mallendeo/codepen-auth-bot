@@ -176,12 +176,9 @@ const state = {
 
       // Send the tokens only to the first comment with
       // the same session id
-      uniqBy(tokens, 'to')
-        .filter(t => t)
-        .forEach(async tokenPromise => {
-          const token = await tokenPromise
-          ns.to(`/auth#${token.to}`).emit('authenticated', token)
-        })
+      uniqBy(tokens, 'to').forEach(token => {
+        ns.to(`/auth#${token.to}`).emit('authenticated', token)
+      })
     }
   }, 1000)
 
